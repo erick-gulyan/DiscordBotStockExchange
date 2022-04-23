@@ -3,7 +3,12 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
-const { clientId, guildId, token } = require('./config.json');
+const dotenv = require('dotenv');
+
+dotenv.config();
+const clientId = process.env.CLIENTID;
+const guildId = process.env.GUILDID;
+const token = process.env.TOKEN;
 
 const commands = [
 	new SlashCommandBuilder().setName('ping').setDescription('Replies with pong!'),
