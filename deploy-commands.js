@@ -10,10 +10,6 @@ const clientId = process.env.CLIENTID;
 const guildId = process.env.GUILDID;
 const token = process.env.TOKEN;
 
-console.log(clientId);
-console.log(guildId);
-console.log(token);
-
 const commands = [
 	new SlashCommandBuilder().setName('ping').setDescription('Replies with pong!'),
 	new SlashCommandBuilder().setName('server').setDescription('Replies with server info!'),
