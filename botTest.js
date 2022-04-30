@@ -8,6 +8,8 @@ var admin = require("firebase-admin");
 
 var serviceAccount = require("./serviceAccountKey.json");
 
+const https = require('https');
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: "https://discordbotstockexchange-default-rtdb.firebaseio.com"
@@ -29,6 +31,8 @@ const firebaseConfig = {
 
 // Initialize Firebase Database
 let database = firebase.database();
+
+
 
 
 
@@ -68,3 +72,27 @@ client.on("messageCreate", msg => {
     }); 
   }
 });
+
+client.on('message', message => {
+  const args = message.content.split(' ');
+  const command = args[0];
+  console.log(args);
+
+  if(command === '!checkPrice') {
+      stockSymbol = args[1];
+      const url = `https://finnhub.io/api/v1/quote?symbol=${stockSymbol}&token=sandbox_c1clrp748v6vbcpf4jt0`;
+      https.get(url, res => {
+        let data = '';
+        res.on('data', chunk => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          data = JSON.parse(data);
+          message.reply(`The current price of ${stockSymbol} is ${data.c}`);
+        })
+      }).on('error', err => {
+        console.log(err.message);
+      })
+  }
+});
+
