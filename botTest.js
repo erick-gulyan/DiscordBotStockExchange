@@ -35,7 +35,7 @@ let database = firebase.database();
 
 
 
-
+//discord client configs
 const Discord = require("discord.js")
 const { Client, Intents } = require('discord.js');
 const client = new Discord.Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES]});
@@ -46,6 +46,7 @@ client.on("ready", () => {
   console.log(`Logged in as ${client.user.tag}!`)
 })
 
+//handling discord commands
 client.on('interactionCreate', async interaction => {
 	if (!interaction.isCommand()) return;
 
@@ -54,10 +55,28 @@ client.on('interactionCreate', async interaction => {
 	if (commandName === 'ping') {
 		await interaction.reply('Pong!');
 	} else if (commandName === 'server') {
-		await interaction.reply('Server info.');
+		await interaction.reply(`Server name: ${interaction.guild.name}\nTotal members: ${interaction.guild.memberCount}`);
 	} else if (commandName === 'user') {
-		await interaction.reply('User info.');
-	}
+		await interaction.reply(`Your tag: ${interaction.user.tag}\nYour id: ${interaction.user.id}`);
+	} else if (commandName === 'stocktest') {
+    stockSymbol = interaction.options.getString('input');
+    console.log(stockSymbol);
+    const url = `https://finnhub.io/api/v1/quote?symbol=${stockSymbol}&token=sandbox_c1clrp748v6vbcpf4jt0`;
+    console.log(1);
+    https.get(url, res => {
+      let data = '';
+      res.on('data', chunk => {
+        data += chunk;
+      });
+      console.log(2);
+      res.on('end', () => {
+        data = JSON.parse(data);
+        interaction.reply(`The current price of ${stockSymbol} is ${data.c}`);
+      })
+    }).on('error', err => {
+      console.log(err.message);
+    })
+  }
 });
 
 client.login(process.env.TOKEN);
