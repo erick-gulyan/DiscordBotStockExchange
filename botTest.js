@@ -60,15 +60,12 @@ client.on('interactionCreate', async interaction => {
 		await interaction.reply(`Your tag: ${interaction.user.tag}\nYour id: ${interaction.user.id}`);
 	} else if (commandName === 'stocktest') {
     stockSymbol = interaction.options.getString('input');
-    console.log(stockSymbol);
     const url = `https://finnhub.io/api/v1/quote?symbol=${stockSymbol}&token=sandbox_c1clrp748v6vbcpf4jt0`;
-    console.log(1);
     https.get(url, res => {
       let data = '';
       res.on('data', chunk => {
         data += chunk;
       });
-      console.log(2);
       res.on('end', () => {
         data = JSON.parse(data);
         interaction.reply(`The current price of ${stockSymbol} is ${data.c}`);
