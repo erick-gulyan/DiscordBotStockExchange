@@ -156,5 +156,6 @@ setInterval(function(){
       }
     }
   });
+  currentSet = (currentSet + 1) % sets;
   //does this every minute, since it is 60,000 in ms 
 }, 60000);
