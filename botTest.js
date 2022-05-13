@@ -115,3 +115,46 @@ client.on('message', message => {
   }
 });
 
+//global variable for the number of stocks, increase when buy or checkPrice is called and it adds a new one
+let totalStocks = 0; //fetched stock arraylength
+let sets = totalStocks.length / 50;
+let currentSet = 0; 
+setInterval(function(){ 
+  //fetch the list of stocks for all servers
+  database.ref('stocks').once('value')
+  .then(function(snapshot) {
+    data = snapshot.val();
+    dataJSON = snapshot.toJSON();
+    let keys = Object.keys(dataJSON)
+    let numKeys = keys.length;
+    for(let i = (currentSet  * 50); i < (currentSet + 1 * 50); i++) {
+      if(i >= numKeys) {
+        return;
+      }
+      else {
+        //update the value of keys[i] in the database by fetching from finnhub and writing to the database
+        let stockSymbol = keys[i];
+        const url = `https://finnhub.io/api/v1/quote?symbol=${stockSymbol}&token=sandbox_c1clrp748v6vbcpf4jt0`;
+      https.get(url, res => {
+        let data = '';
+        res.on('data', chunk => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          data = JSON.parse(data);
+          if(data.c == 0) {
+            console.log("This is not in the database");
+            message.reply("There was an error with your request")
+            return;
+          }
+          database.ref('stocks/' + stockSymbol).set(data.c);
+          console.log('done');
+        })
+      }).on('error', err => {
+        console.log(err.message);
+      });
+      }
+    }
+  });
+  //does this every minute, since it is 60,000 in ms 
+}, 60000);
