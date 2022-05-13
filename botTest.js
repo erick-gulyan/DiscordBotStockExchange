@@ -144,7 +144,6 @@ setInterval(function(){
           data = JSON.parse(data);
           if(data.c == 0) {
             console.log("This is not in the database");
-            message.reply("There was an error with your request")
             return;
           }
           database.ref('stocks/' + stockSymbol).set(data.c);
