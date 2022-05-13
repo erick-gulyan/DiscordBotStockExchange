@@ -97,6 +97,7 @@ client.on('message', message => {
   const command = args[0];
   console.log(args);
 
+  /*
   if(command === '!checkPrice') {
       stockSymbol = args[1];
       const url = `https://finnhub.io/api/v1/quote?symbol=${stockSymbol}&token=sandbox_c1clrp748v6vbcpf4jt0`;
@@ -112,6 +113,17 @@ client.on('message', message => {
       }).on('error', err => {
         console.log(err.message);
       })
+  }
+  */
+   if(command === '!checkPrice') {
+      stockSymbol = args[1];
+      //fetch from the database, if it isn't there add a new entry and then return the value
+      database.ref('stocks/' + stockSymbol).once('value')
+      .then(function(snapshot) {
+        data = snapshot.val();
+        console.log(data);
+        message.reply(`The price of ${stockSymbol} is ${data}`)
+      });
   }
 });
 
