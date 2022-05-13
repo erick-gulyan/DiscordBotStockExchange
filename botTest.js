@@ -122,7 +122,29 @@ client.on('message', message => {
       .then(function(snapshot) {
         data = snapshot.val();
         console.log(data);
-        message.reply(`The price of ${stockSymbol} is ${data}`)
+        if(data == null) {
+          const url = `https://finnhub.io/api/v1/quote?symbol=${stockSymbol}&token=sandbox_c1clrp748v6vbcpf4jt0`;
+          https.get(url, res => {
+            let data = '';
+            res.on('data', chunk => {
+              data += chunk;
+            });
+            res.on('end', () => {
+              data = JSON.parse(data);
+              if(data.c == 0) {
+                console.log("This is not a real stock");
+                return;
+              }
+              database.ref('stocks/' + stockSymbol).set(data.c);
+              message.reply(`The price of ${stockSymbol} is ${data.c}`)
+            })
+          }).on('error', err => {
+            console.log(err.message);
+          }); 
+        }
+        else {
+          message.reply(`The price of ${stockSymbol} is ${data}`);
+        } 
       });
   }
 });
