@@ -61,8 +61,12 @@ client.login(process.env.TOKEN);
 
 
 //Function that is called whenever someone first tries to do any action, it will sign them up
+function addUser() {
+  //if userID is already present on this server, then return
+  //else sign up user 
+}
 
-
+/*
 // Fetch and get the list named 'members'
 guild.members.fetch().then(members =>
 {
@@ -70,9 +74,13 @@ guild.members.fetch().then(members =>
 	members.forEach(member =>
     {
       // Do whatever you want with the current member
-      database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).set(userAmount + amount);
+      let userID = member.id;
+      database.ref(`${guildId}`).set(userID);
+      database.ref(`${guildId}/${userID}` + balance).set(25000);
+      database.ref(`${guildId}/${userID}` + totalWealth).set(25000);
+
     });
-});
+});*/
 
 
 client.on("messageCreate", msg => {
