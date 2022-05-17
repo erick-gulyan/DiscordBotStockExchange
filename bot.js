@@ -63,7 +63,7 @@ client.login(process.env.TOKEN);
 function addUser(guildId, userId) {
   //if userID is already present on this server, then return
   //else sign up user 
-  database.ref(`${guildId}/${userId}`)
+  database.ref(`${guildId}/${userId}`).once('value')
   .then(function(snapshot) {
     if(snapshot.val() != null) {
       return;
