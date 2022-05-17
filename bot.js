@@ -234,3 +234,15 @@ setInterval(function(){
   currentSet = (currentSet + 1) % sets;
   ////does this every minute, since it is 60,000 in ms 
 }, 60000);
+
+//Function for fetching stock from the database
+async function databaseFetch(stockSymbol) {
+  return await database.ref('stocks/' + stockSymbol).once('value');
+}
+
+/*
+Usage of the function: 
+databaseFetch('NVDA').then(function(snapshot) {
+  console.log(snapshot.val());
+});
+*/
