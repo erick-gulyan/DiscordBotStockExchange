@@ -59,11 +59,19 @@ client.on('interactionCreate', async interaction => {
 
 client.login(process.env.TOKEN);
 
-
-//Function that is called whenever someone first tries to do any action, it will sign them up
-function addUser() {
+//Function that adds users
+function addUser(guildId, userId) {
   //if userID is already present on this server, then return
   //else sign up user 
+  database.ref(`${guildId}/${userId}`)
+  .then(function(snapshot) {
+    if(snapshot.val() != null) {
+      return;
+    }
+    else {
+      database.ref(`${guildId}/${userId}/balance`).set(25000);
+    }
+  });
 }
 
 /*
@@ -103,6 +111,9 @@ client.on('message', message => {
   const amount = args[2];
   const url = `https://finnhub.io/api/v1/quote?symbol=${stockSymbol}&token=sandbox_c1clrp748v6vbcpf4jt0`;
   let userBalance = 0; 
+	
+  //Adds users when they try to do something
+  addUser(guildId, userId);
 
   if(command === '!checkPrice') {
       //fetch from the database, if it isn't there add a new entry and then return the value
