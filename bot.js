@@ -61,16 +61,20 @@ client.login(process.env.TOKEN);
 
 
 //Function that is called whenever someone first tries to do any action, it will sign them up (if they don't come up properly)
-function addUser(guildId, userId) {
+async function addUser(guildId, userId) {
   //if userID is already present on this server, then return
   //else sign up user 
-  database.ref(`${guildId}/${userId}`).once('value')
+
+  await database.ref(`${guildId}/${userId}`).once('value')
   .then(function(snapshot) {
     if(snapshot.val() != null) {
+      console.log("User already exists");
       return;
     }
     else {
       database.ref(`${guildId}/${userId}/balance`).set(25000);
+      console.log("Set the new user balance");
+      return;
     }
   });
 }
@@ -114,8 +118,11 @@ client.on('message', message => {
   let userBalance = 0; 
   
   //Adds users when they try to do something
-  addUser(guildId, userId);
+  addUser(guildId, userId)
 
+  
+  setTimeout(function() {
+    
   if(command === '!checkPrice') {
       //fetch from the database, if it isn't there add a new entry and then return the value
       database.ref('stocks/' + stockSymbol).once('value')
@@ -176,30 +183,34 @@ client.on('message', message => {
     });
 
     //get the user balance
-    userBalance = database.ref(`${guildId}/${userId}/balance`).once('value');
-    console.log(userBalance);
-
-    //check if their balance is enough to pay for the amount
-    database.ref(`stocks/${stockSymbol}`).once('value')
+    database.ref(`${guildId}/${userId}/balance`).once('value')
     .then(function(snapshot) {
-      let stockPrice = snapshot.val();
-      if(stockPrice * amount > userBalance) {
-        message.reply("Insufficient Funds");
-        return;
-      }
-    });
-
-    //check if user has stock and if not, set their amount to 0
-    //Set user amount to user amount += requested amount
-    database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).once('value')
-    .then(function(snapshot) {
-      let userAmount = snapshot.val();
-      console.log(userAmount);
-      if (userAmount == null) {
-        database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).set(0);
-      }
-      database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).set(parseInt(userAmount) + parseInt(amount));
-      message.reply(`You have successfully purchased ${amount} shares of ${stockSymbol}`);
+      //check if their balance is enough to pay for the amount
+      userBalance = snapshot.val();
+      database.ref(`stocks/${stockSymbol}`).once('value')
+      .then(function(snapshot) {
+        let stockPrice = snapshot.val();
+        if(parseInt(stockPrice) * parseInt(amount) > parseInt(userBalance)) {
+          message.reply("Insufficient Funds");
+        }
+        else {
+          database.ref(`${guildId}/${userId}/balance`).set(parseInt(userBalance) - parseInt(stockPrice) * parseInt(amount));
+          //check if user has stock and if not, set their amount to 0
+          //Set user amount to user amount += requested amount
+          database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).once('value')
+          .then(function(snapshot) {
+            let userAmount = snapshot.val();
+            console.log(userAmount);
+            if (userAmount == null) {
+                database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).set(0);
+            }
+            setTimeout(function() {
+              database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).set(parseInt(userAmount) + parseInt(amount));
+              message.reply(`You have successfully purchased ${amount} shares of ${stockSymbol}`);
+            }, 5000);
+          });
+        }
+      });
     });
 
   }
@@ -221,27 +232,36 @@ client.on('message', message => {
       });
     }); 
   }
+
+
+  }, 2000);
+
+
 });
+
+
 
 //global variable for the number of stocks, increase when buy or checkPrice is called and it adds a new one
 let totalStocks = 0; //fetched stock arraylength, need to fix this still 
-let sets = totalStocks.length / 50;
+let sets = ((totalStocks.length - 1) / 50) + 1;
 let currentSet = 0; 
 setInterval(function(){ 
+  console.log("started");
   //fetch the list of stocks for all servers
   database.ref('stocks').once('value')
   .then(function(snapshot) {
     data = snapshot.val();
     dataJSON = snapshot.toJSON();
-    let keys = Object.keys(dataJSON)
+    let keys = Object.keys(dataJSON);
     let numKeys = keys.length;
-    for(let i = (currentSet  * 50); i < (currentSet + 1 * 50); i++) {
+    for(let i = (currentSet * 50); i < ((currentSet + 1) * 50); i++) {
       if(i >= numKeys) {
         return;
       }
       else {
         //update the value of keys[i] in the database by fetching from finnhub and writing to the database
         let stockSymbol = keys[i];
+        console.log("updated");
       https.get(url, res => {
         let data = '';
         res.on('data', chunk => {
@@ -264,7 +284,7 @@ setInterval(function(){
   });
   currentSet = (currentSet + 1) % sets;
   ////does this every minute, since it is 60,000 in ms 
-}, 60000);
+}, 6000);
 
 //Function for fetching stock from the database
 async function databaseFetch(stockSymbol) {
