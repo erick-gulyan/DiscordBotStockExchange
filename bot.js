@@ -10,6 +10,8 @@ var serviceAccount = require("./serviceAccountKey.json");
 
 const https = require('https');
 
+const { MessageEmbed } = require('discord.js');
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: "https://discordbotstockexchange-default-rtdb.firebaseio.com"
@@ -141,81 +143,138 @@ function commandCenter(message, args, guildId, userId, command, stockSymbol, amo
     });
 }
 
-else if(command == '!buy') {
-  //check if stock is in database and if not add it in
-  database.ref('stocks/' + stockSymbol).once('value')
-  .then(function(snapshot) {
-    let data = snapshot.val();
-    console.log(data);
-    if (data == null) {
-      https.get(url, res => {
-        let data = '';
-        res.on('data', chunk => {
-          data += chunk;
-        });
-        res.on('end', () => {
-          data = JSON.parse(data);
-          if(data.c == 0) {
-            console.log("This is not a real stock");
-            return;
-          }
-          database.ref('stocks/' + stockSymbol).set(data.c);
-        })
-        .on('error', err => {
-        console.log(err.message);
-      }); 
-    }); 
-   }
-  });
-
-  //get the user balance
-  database.ref(`${guildId}/${userId}/balance`).once('value')
-  .then(function(snapshot) {
-    //check if their balance is enough to pay for the amount
-    userBalance = snapshot.val();
-    database.ref(`stocks/${stockSymbol}`).once('value')
+  else if(command == '!buy') {
+    const buyEmbed = new MessageEmbed();
+    buyEmbed.setTitle()
+    //check if stock is in database and if not add it in
+    database.ref('stocks/' + stockSymbol).once('value')
     .then(function(snapshot) {
-      let stockPrice = snapshot.val();
-      if(parseInt(stockPrice) * parseInt(amount) > parseInt(userBalance)) {
-        message.reply("Insufficient Funds");
+      let data = snapshot.val();
+      console.log(data);
+      if (data == null) {
+        https.get(url, res => {
+          let data = '';
+          res.on('data', chunk => {
+            data += chunk;
+          });
+          res.on('end', () => {
+            data = JSON.parse(data);
+            if(data.c == 0) {
+              console.log("This is not a real stock");
+              
+              return;
+            }
+            database.ref('stocks/' + stockSymbol).set(data.c);
+          })
+          .on('error', err => {
+          console.log(err.message);
+        }); 
+      }); 
+    }
+    });
+
+    //get the user balance
+    database.ref(`${guildId}/${userId}/balance`).once('value')
+    .then(function(snapshot) {
+      //check if their balance is enough to pay for the amount
+      userBalance = snapshot.val();
+      database.ref(`stocks/${stockSymbol}`).once('value')
+      .then(function(snapshot) {
+        let stockPrice = snapshot.val();
+        if(parseInt(stockPrice) * parseInt(amount) > parseInt(userBalance)) {
+          message.reply("Insufficient Funds");
+        }
+        else {
+          database.ref(`${guildId}/${userId}/balance`).set(parseInt(userBalance) - parseInt(stockPrice) * parseInt(amount));
+          //check if user has stock and if not, set their amount to 0
+          //Set user amount to user amount += requested amount
+          database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).once('value')
+          .then(function(snapshot) {
+            let userAmount = snapshot.val();
+            console.log(userAmount);
+            if (userAmount == null) {
+                userAmount = 0;
+            }
+            database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).set(parseInt(userAmount) + parseInt(amount));
+            
+            successful
+            message.reply(`You have successfully purchased ${amount} shares of ${stockSymbol}`);
+          });
+        }
+      });
+    });
+
+  }
+
+  else if(command == "!viewPortfolio") {
+    const viewPortfolioEmbed = new MessageEmbed();
+    viewPortfolioEmbed.setTitle(`Portfolio for ${message.author.username}`);
+    viewPortfolioEmbed.setColor('#008000');
+    viewPortfolioEmbed.setImage('https://imgur.com/r/doge/pLChpFa');
+    //Get balance
+    database.ref(`${guildId}/${userId}/balance`).once('value')
+    .then(function(snapshot) {
+      userBalance = snapshot.val();
+      database.ref(`${guildId}/${userId}/stocks`).once('value')
+        .then(function(snapshot) {
+          stocksList = snapshot.toJSON();
+          stockSymbols = Object.keys(stocksList);
+          viewPortfolioEmbed.addField(`Balance:`, `${userBalance}`);
+          stockSymbols.forEach((element) => {
+            viewPortfolioEmbed.addField(`${element}`, `${stocksList[element]}`);
+            //messageReply += `${element}: ${stocksList[element]}\n`;
+          });
+          message.reply({embeds: [viewPortfolioEmbed] });
+      });
+    }); 
+  }
+
+  else if(command == "!sell") {
+    //get the user stock amount and compare to the amount selling for that stock
+    database.ref(`${guildId}/${userId}/stocks/${stockSymbol}`).once('value')
+    .then(function(snapshot) {
+      if(snapshot.val() >= amount) {
+        database.ref(`${guildId}/${userId}/stocks/${stockSymbol}`).set(parseInt(snapshot.val() - parseInt(amount)));
+        database.ref(`${guildId}/${userId}/balance`).once('value')
+        .then(function(snapshot) {
+          userBalance = snapshot.val();
+          database.ref(`stocks/${stockSymbol}`).once('value')
+          .then(function(snapshot) {
+            let newBalance = parseInt(userBalance) + (parseInt(snapshot.val()) * parseInt(amount));
+            database.ref(`${guildId}/${userId}/balance`).set(parseInt(newBalance));
+            message.reply(`You have successfully sold ${amount} share(s) of ${stockSymbol}`);
+          });
+        });
       }
       else {
-        database.ref(`${guildId}/${userId}/balance`).set(parseInt(userBalance) - parseInt(stockPrice) * parseInt(amount));
-        //check if user has stock and if not, set their amount to 0
-        //Set user amount to user amount += requested amount
-        database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).once('value')
-        .then(function(snapshot) {
-          let userAmount = snapshot.val();
-          console.log(userAmount);
-          if (userAmount == null) {
-              userAmount = 0;
-          }
-          database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).set(parseInt(userAmount) + parseInt(amount));
-          message.reply(`You have successfully purchased ${amount} shares of ${stockSymbol}`);
-        });
+        message.reply(`You don't have enough shares of ${stockSymbol} to sell.`)
       }
-    });
-  });
+    });    
+  }
 
-}
+  else if(command == "!viewLeaderboard") { 
 
-else if(command == "!viewPortfolio") {
-  //Get balance
-  database.ref(`${guildId}/${userId}/balance`).once('value')
-  .then(function(snapshot) {
-    userBalance = snapshot.val();
-    database.ref(`${guildId}/${userId}/stocks`).once('value')
-      .then(function(snapshot) {
-        stocksList = snapshot.toJSON();
-        stockSymbols = Object.keys(stocksList);
-        messageReply = `Balance: ${userBalance}\n`;
-        stockSymbols.forEach((element) => {
-          messageReply += `${element}: ${stocksList[element]}\n`;
-        });
-        message.reply(messageReply);
+    database.ref(`${guildId}`).once('value')
+    .then(function(snapshot) {
+      let data = snapshot.val();
+      let usersAndWealthArray = Object.entries(data);
+
+      //loop through all users in the server
+
+        //go through and add up all users stocks and balances
+
+        //create an array of username, totalWealth tuples
+
+        //sort based on the totalWealth portion of the tuple
+
+        //display the leaderboard based on these results
+
+      console.log(usersAndWealthArray[1][1].balance); //gives the user balance of the 2nd person 
+      
     });
-  }); 
-}
+  }
+
+
 }
 
 client.on('message', message => {
@@ -236,13 +295,14 @@ client.on('message', message => {
     .then(function(snapshot) {
       if(snapshot.val() != null) {
         console.log("User already exists");
+        commandCenter(message, args, guildId, userId, command, stockSymbol, amount, url, userBalance);
       }
       else {
         database.ref(`${guildId}/${userId}/balance`).set(25000);
-        console.log("Set the new user balance");
+        database.ref(`${guildId}/${userId}/username`).set(message.author.username);
+        message.reply('Thank you for signing in, you may now use all commands');
       }
     });
-    commandCenter(message, args, guildId, userId, command, stockSymbol, amount, url, userBalance);
   }
   
   //Adds users when they try to do something
@@ -410,7 +470,7 @@ setInterval(function(){
   });
   currentSet = (currentSet + 1) % sets;
   ////does this every minute, since it is 60,000 in ms 
-}, 6000);
+}, 60000);
 
 //Function for fetching stock from the database
 async function databaseFetch(stockSymbol) {
@@ -428,5 +488,4 @@ databaseFetch('NVDA').then(function(snapshot) {
 function finnhubFetch(stockSymbol) {
 
 }
-
 
