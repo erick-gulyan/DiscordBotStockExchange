@@ -259,18 +259,43 @@ function commandCenter(message, args, guildId, userId, command, stockSymbol, amo
       let data = snapshot.val();
       let usersAndWealthArray = Object.entries(data);
 
+      let sorted = usersAndWealthArray.sort(function(a, b) {
+        return b[1].balance - a[1].balance;
+      });
+
+      const leaderboard = new MessageEmbed();
+      leaderboard.setTitle('Leaderboard');
+      leaderboard.setColor('YELLOW');
+      if(sorted.length < 10) {
+        for(let i = 0; i < sorted.length; i++) {
+          console.log(sorted[i][1].username);
+          console.log(sorted[i][1].balance);
+
+          leaderboard.addField(`${i + 1}: ${sorted[i][1].username}`, `${sorted[i][1].balance}`);
+        }
+      }
+      else {
+        for(let i = 0; i < 10; i++) {
+          leaderboard.addField(`${sorted[i][1].username}`, `${sorted[i][1].balance}`);
+        }
+      }
+
+      message.reply({embeds: [leaderboard] });
+
       //loop through all users in the server
-
-        //go through and add up all users stocks and balances
-
-        //create an array of username, totalWealth tuples
-
-        //sort based on the totalWealth portion of the tuple
-
-        //display the leaderboard based on these results
-
-      console.log(usersAndWealthArray[1][1].balance); //gives the user balance of the 2nd person 
-      
+      /*
+      usersAndWealthArray.forEach(element => {
+        let balance = element[1].balance;
+        let stocks = element[1].stocks;
+        let totalWealth = balance;
+        for(const stock in stocks) {
+            database.ref(`stocks/${stock}`).once('value')
+            .then(function(snapshot) {
+              //totalWealth += snapshot.val() * stocks[stock];
+            });
+        }
+      });
+      */
     });
   }
 
@@ -488,4 +513,5 @@ databaseFetch('NVDA').then(function(snapshot) {
 function finnhubFetch(stockSymbol) {
 
 }
+
 
