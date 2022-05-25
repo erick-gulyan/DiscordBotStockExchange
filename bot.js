@@ -10,7 +10,7 @@ var serviceAccount = require("./serviceAccountKey.json");
 
 const https = require('https');
 
-const { MessageEmbed } = require('discord.js');
+const { MessageEmbed, MessageAttachment } = require('discord.js');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -61,42 +61,6 @@ client.on('interactionCreate', async interaction => {
 
 client.login(process.env.TOKEN);
 
-/*
-//Function that is called whenever someone first tries to do any action, it will sign them up (if they don't come up properly)
-function addUser(guildId, userId) {
-  //if userID is already present on this server, then return
-  //else sign up user 
-
-  database.ref(`${guildId}/${userId}`).once('value')
-  .then(function(snapshot) {
-    if(snapshot.val() != null) {
-      console.log("User already exists");
-    }
-    else {
-      database.ref(`${guildId}/${userId}/balance`).set(25000);
-      console.log("Set the new user balance");
-    }
-  });
-  commandCenter();
-}
-*/
-
-/*
-// Fetch and get the list named 'members'
-guild.members.fetch().then(members =>
-{
-  	// Loop through every members
-	members.forEach(member =>
-    {
-      // Do whatever you want with the current member
-      let userID = member.id;
-      database.ref(`${guildId}`).set(userID);
-      database.ref(`${guildId}/${userID}` + balance).set(25000);
-      database.ref(`${guildId}/${userID}` + totalWealth).set(25000);
-
-    });
-});*/
-
 
 client.on("messageCreate", msg => {
   if(msg.content === "test") {
@@ -109,14 +73,15 @@ client.on("messageCreate", msg => {
   }
 });
 
-
+let totalWealth = 0;
 function commandCenter(message, args, guildId, userId, command, stockSymbol, amount, url, userBalance) {
   if(command === '!checkPrice') {
+    const checkPriceEmbed = new MessageEmbed();
+    checkPriceEmbed.setTitle('Price Check');
     //fetch from the database, if it isn't there add a new entry and then return the value
     database.ref('stocks/' + stockSymbol).once('value')
     .then(function(snapshot) {
       data = snapshot.val();
-      console.log(data);
       if(data == null) {
         https.get(url, res => {
           let data = '';
@@ -126,31 +91,32 @@ function commandCenter(message, args, guildId, userId, command, stockSymbol, amo
           res.on('end', () => {
             data = JSON.parse(data);
             if(data.c == 0) {
-              console.log("This is not a real stock");
-              message.reply("This is not a real stock");
+              checkPriceEmbed.addField('This is not a real stock', 'Please try again');
+              message.reply({embeds: [checkPriceEmbed] });
               return;
             }
             database.ref('stocks/' + stockSymbol).set(data.c);
-            message.reply(`The price of ${stockSymbol} is ${data.c}`);
+            checkPriceEmbed.addField(`${stockSymbol}:`, `${data.c}`);
+            message.reply({embeds: [checkPriceEmbed] });
           })
         }).on('error', err => {
           console.log(err.message);
         }); 
       }
       else {  
-        message.reply(`The price of ${stockSymbol} is ${data}`);
+        checkPriceEmbed.addField(`${stockSymbol}:`, `${data}`);
+        message.reply({embeds: [checkPriceEmbed] });
       }
     });
 }
 
   else if(command == '!buy') {
     const buyEmbed = new MessageEmbed();
-    buyEmbed.setTitle()
+    buyEmbed.setTitle(`Record of Purchase for ${message.author.username}`);
     //check if stock is in database and if not add it in
     database.ref('stocks/' + stockSymbol).once('value')
     .then(function(snapshot) {
       let data = snapshot.val();
-      console.log(data);
       if (data == null) {
         https.get(url, res => {
           let data = '';
@@ -159,9 +125,11 @@ function commandCenter(message, args, guildId, userId, command, stockSymbol, amo
           });
           res.on('end', () => {
             data = JSON.parse(data);
-            if(data.c == 0) {
+            console.log(data);
+            if(data.c == 0 || data == null) {
               console.log("This is not a real stock");
-              
+              buyEmbed.addField(`Purchase:`,`This stock does not exist, sorry.`);
+              message.reply({embeds: [buyEmbed] });
               return;
             }
             database.ref('stocks/' + stockSymbol).set(data.c);
@@ -182,7 +150,8 @@ function commandCenter(message, args, guildId, userId, command, stockSymbol, amo
       .then(function(snapshot) {
         let stockPrice = snapshot.val();
         if(parseInt(stockPrice) * parseInt(amount) > parseInt(userBalance)) {
-          message.reply("Insufficient Funds");
+          buyEmbed.addField('Purchase:', `Insufficient funds, no purchase made`);
+          message.reply({embeds: [buyEmbed] });
         }
         else {
           database.ref(`${guildId}/${userId}/balance`).set(parseInt(userBalance) - parseInt(stockPrice) * parseInt(amount));
@@ -197,23 +166,22 @@ function commandCenter(message, args, guildId, userId, command, stockSymbol, amo
             }
             database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).set(parseInt(userAmount) + parseInt(amount));
             
-            successful
-            message.reply(`You have successfully purchased ${amount} shares of ${stockSymbol}`);
+            buyEmbed.addField('Purchase:', `${amount} share(s) of ${stockSymbol} at ${stockPrice} each`);
+            message.reply({embeds: [buyEmbed] });
           });
         }
       });
     });
-
   }
 
   else if(command == "!viewPortfolio") {
     const viewPortfolioEmbed = new MessageEmbed();
     viewPortfolioEmbed.setTitle(`Portfolio for ${message.author.username}`);
     viewPortfolioEmbed.setColor('#008000');
-    viewPortfolioEmbed.setImage('https://imgur.com/r/doge/pLChpFa');
     //Get balance
     database.ref(`${guildId}/${userId}/balance`).once('value')
     .then(function(snapshot) {
+      totalWealth = 0;
       userBalance = snapshot.val();
       database.ref(`${guildId}/${userId}/stocks`).once('value')
         .then(function(snapshot) {
@@ -222,7 +190,6 @@ function commandCenter(message, args, guildId, userId, command, stockSymbol, amo
           viewPortfolioEmbed.addField(`Balance:`, `${userBalance}`);
           stockSymbols.forEach((element) => {
             viewPortfolioEmbed.addField(`${element}`, `${stocksList[element]}`);
-            //messageReply += `${element}: ${stocksList[element]}\n`;
           });
           message.reply({embeds: [viewPortfolioEmbed] });
       });
@@ -259,6 +226,7 @@ function commandCenter(message, args, guildId, userId, command, stockSymbol, amo
       let data = snapshot.val();
       let usersAndWealthArray = Object.entries(data);
 
+      
       let sorted = usersAndWealthArray.sort(function(a, b) {
         return b[1].balance - a[1].balance;
       });
@@ -279,27 +247,9 @@ function commandCenter(message, args, guildId, userId, command, stockSymbol, amo
           leaderboard.addField(`${sorted[i][1].username}`, `${sorted[i][1].balance}`);
         }
       }
-
       message.reply({embeds: [leaderboard] });
-
-      //loop through all users in the server
-      /*
-      usersAndWealthArray.forEach(element => {
-        let balance = element[1].balance;
-        let stocks = element[1].stocks;
-        let totalWealth = balance;
-        for(const stock in stocks) {
-            database.ref(`stocks/${stock}`).once('value')
-            .then(function(snapshot) {
-              //totalWealth += snapshot.val() * stocks[stock];
-            });
-        }
-      });
-      */
     });
   }
-
-
 }
 
 client.on('message', message => {
@@ -319,7 +269,6 @@ client.on('message', message => {
     await database.ref(`${guildId}/${userId}`).once('value')
     .then(function(snapshot) {
       if(snapshot.val() != null) {
-        console.log("User already exists");
         commandCenter(message, args, guildId, userId, command, stockSymbol, amount, url, userBalance);
       }
       else {
@@ -332,121 +281,6 @@ client.on('message', message => {
   
   //Adds users when they try to do something
   addUser(guildId, userId, commandCenter);
-
-  
-  //setTimeout(function() {
-  /*  
-  if(command === '!checkPrice') {
-      //fetch from the database, if it isn't there add a new entry and then return the value
-      database.ref('stocks/' + stockSymbol).once('value')
-      .then(function(snapshot) {
-        data = snapshot.val();
-        console.log(data);
-        if(data == null) {
-          https.get(url, res => {
-            let data = '';
-            res.on('data', chunk => {
-              data += chunk;
-            });
-            res.on('end', () => {
-              data = JSON.parse(data);
-              if(data.c == 0) {
-                console.log("This is not a real stock");
-                message.reply("This is not a real stock");
-                return;
-              }
-              database.ref('stocks/' + stockSymbol).set(data.c);
-              message.reply(`The price of ${stockSymbol} is ${data.c}`);
-            })
-          }).on('error', err => {
-            console.log(err.message);
-          }); 
-        }
-        else {  
-          message.reply(`The price of ${stockSymbol} is ${data}`);
-        }
-      });
-  }
-
-  else if(command == '!buy') {
-    //check if stock is in database and if not add it in
-    database.ref('stocks/' + stockSymbol).once('value')
-    .then(function(snapshot) {
-      let data = snapshot.val();
-      console.log(data);
-      if (data == null) {
-        https.get(url, res => {
-          let data = '';
-          res.on('data', chunk => {
-            data += chunk;
-          });
-          res.on('end', () => {
-            data = JSON.parse(data);
-            if(data.c == 0) {
-              console.log("This is not a real stock");
-              return;
-            }
-            database.ref('stocks/' + stockSymbol).set(data.c);
-          })
-          .on('error', err => {
-          console.log(err.message);
-        }); 
-      }); 
-     }
-    });
-
-    //get the user balance
-    database.ref(`${guildId}/${userId}/balance`).once('value')
-    .then(function(snapshot) {
-      //check if their balance is enough to pay for the amount
-      userBalance = snapshot.val();
-      database.ref(`stocks/${stockSymbol}`).once('value')
-      .then(function(snapshot) {
-        let stockPrice = snapshot.val();
-        if(parseInt(stockPrice) * parseInt(amount) > parseInt(userBalance)) {
-          message.reply("Insufficient Funds");
-        }
-        else {
-          database.ref(`${guildId}/${userId}/balance`).set(parseInt(userBalance) - parseInt(stockPrice) * parseInt(amount));
-          //check if user has stock and if not, set their amount to 0
-          //Set user amount to user amount += requested amount
-          database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).once('value')
-          .then(function(snapshot) {
-            let userAmount = snapshot.val();
-            console.log(userAmount);
-            if (userAmount == null) {
-                userAmount = 0;
-            }
-            database.ref(`${guildId}/${userId}/stocks/` + stockSymbol).set(parseInt(userAmount) + parseInt(amount));
-            message.reply(`You have successfully purchased ${amount} shares of ${stockSymbol}`);
-          });
-        }
-      });
-    });
-
-  }
-
-  else if(command == "!viewPortfolio") {
-    //Get balance
-    database.ref(`${guildId}/${userId}/balance`).once('value')
-    .then(function(snapshot) {
-      userBalance = snapshot.val();
-      database.ref(`${guildId}/${userId}/stocks`).once('value')
-        .then(function(snapshot) {
-          stocksList = snapshot.toJSON();
-          stockSymbols = Object.keys(stocksList);
-          messageReply = `Balance: ${userBalance}\n`;
-          stockSymbols.forEach((element) => {
-            messageReply += `${element}: ${stocksList[element]}\n`;
-          });
-          message.reply(messageReply);
-      });
-    }); 
-  }
-
-
-  //}, 2000);
-*/
 
 });
 
@@ -497,21 +331,5 @@ setInterval(function(){
   ////does this every minute, since it is 60,000 in ms 
 }, 60000);
 
-//Function for fetching stock from the database
-async function databaseFetch(stockSymbol) {
-  return await database.ref('stocks/' + stockSymbol).once('value');
-}
-
-/*
-Usage of the function: 
-databaseFetch('NVDA').then(function(snapshot) {
-  console.log(snapshot.val());
-});
-*/
-
-//Function for getting a stock from finnhub
-function finnhubFetch(stockSymbol) {
-
-}
 
 
